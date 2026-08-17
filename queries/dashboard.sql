@@ -15,7 +15,12 @@ select
     quantile_cont(latency_ms, 0.95)::int            as p95_latency_ms,
     sum(case when is_escalated then 1 else 0 end)   as n_escalated,
     sum(tokens_in + tokens_out)                     as tokens_total
-from read_parquet('data/gold_events/*.parquet')
+-- Trỏ vào dataset đã nén (tools/compact.py), bật hive_partitioning để
+-- DuckDB đọc event_date từ tên thư mục partition.
+from read_parquet('data/gold_events_v2/**/*.parquet', hive_partitioning = true)
 where customer_name = 'ACME'
-  and strftime(event_time, '%Y-%m-%d') = '2026-08-09'
+  -- Predicate sargable: cột đứng một mình, so trực tiếp với giá trị DATE nên
+  -- engine dùng được partition pruning + min/max của row group (khác với
+  -- strftime(event_time, ...) bọc cột trong function làm hỏng cả hai).
+  and event_date = DATE '2026-08-09'
 group by 1

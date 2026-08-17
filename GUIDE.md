@@ -141,6 +141,24 @@ make pipeline && q "select count(*) from gold_training_set"
 Ghi lại hai con số. Quan hệ giữa chúng cho biết lượt chạy thứ hai đã thực hiện
 phép ghi nào lên bảng đích.
 
+append
+
+```
+┌──────────────┐
+│ count_star() │
+│    int64     │
+├──────────────┤
+│        13790 │
+└──────────────┘
+
+┌──────────────┐
+│ count_star() │
+│    int64     │
+├──────────────┤
+│        26270 │
+└──────────────┘
+```
+
 ### 1.2 Khoanh vùng lỗi
 
 ```sql
@@ -166,9 +184,9 @@ ba tham số; hiện mới khai báo một.
 
 Cần trả lời:
 
-1. Khi thiếu `unique_key`, dbt generate ra câu lệnh ghi nào?
+1. Khi thiếu `unique_key`, dbt generate ra câu lệnh ghi nào? append
 2. Với câu lệnh đó, chạy lại cùng một ngày lần thứ hai thì row cũ bị **ghi đè**
-   hay bị **ghi thêm**?
+   hay bị **ghi thêm**? ghi them
 
 ### 1.4 Đặc điểm của source CDC
 

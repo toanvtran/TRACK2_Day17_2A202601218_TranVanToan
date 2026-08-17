@@ -1,8 +1,15 @@
 SHELL   := /bin/bash
-VENV    := .venv
-PY      := $(VENV)/bin/python
-PIP     := $(VENV)/bin/pip
-DBT     := $(VENV)/bin/dbt
+export PYTHONUTF8=1
+
+# VENV    := .venv
+# PY      := $(VENV)/bin/python
+# PIP     := $(VENV)/bin/pip
+# DBT     := $(VENV)/bin/dbt
+
+# conda environment
+PY      := python
+PIP     := pips
+DBT     := dbt
 
 export LAB17_DB := $(CURDIR)/warehouse.duckdb
 export DBT_PROFILES_DIR := $(CURDIR)/dbt
@@ -19,13 +26,19 @@ help:  ## danh sách lệnh
 	  | awk 'BEGIN {FS = ":.*?## "}; {printf "    \033[36m%-14s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 
-setup:  ## venv + thư viện + sinh dữ liệu (chạy một lần)
-	@test -d $(VENV) || python3 -m venv $(VENV)
+# setup:  ## venv + thư viện + sinh dữ liệu (chạy một lần)
+# 	@test -d $(VENV) || python3 -m venv $(VENV)
+# 	@$(PIP) install -q --upgrade pip
+# 	@$(PIP) install -q -r requirements.txt
+# 	@$(PY) seed/generate.py
+# 	@echo ""
+# 	@echo "  xong. Bước tiếp theo:  make pipeline  rồi  make verify"
+
+setup:  ## cài thư viện + sinh dữ liệu (chạy một lần)
 	@$(PIP) install -q --upgrade pip
 	@$(PIP) install -q -r requirements.txt
 	@$(PY) seed/generate.py
-	@echo ""
-	@echo "  xong. Bước tiếp theo:  make pipeline  rồi  make verify"
+	@chcp 65001
 
 seed:  ## sinh lại dữ liệu seed
 	@$(PY) seed/generate.py
@@ -63,9 +76,14 @@ crash-test:  ## [mở rộng] kịch bản consumer bị giết giữa batch
 	@$(PY) tools/crash_test.py
 
 reset:  ## xoá kho DuckDB (giữ nguyên seed và data/)
-	@rm -f warehouse.duckdb warehouse.duckdb.wal
+	@if exist warehouse.duckdb del /f /q warehouse.duckdb
+	@if exist warehouse.duckdb.wal del /f /q warehouse.duckdb.wal
 	@echo "  kho đã xoá."
 
 clean:  ## xoá kho + target dbt + thư mục làm việc của crash-test
-	@rm -rf warehouse.duckdb warehouse.duckdb.wal dbt/target dbt/logs data/crash
+	@if exist warehouse.duckdb del /f /q warehouse.duckdb
+	@if exist warehouse.duckdb.wal del /f /q warehouse.duckdb.wal
+	@if exist dbt\target rmdir /s /q dbt\target
+	@if exist dbt\logs rmdir /s /q dbt\logs
+	@if exist data\crash rmdir /s /q data\crash
 	@echo "  đã dọn."

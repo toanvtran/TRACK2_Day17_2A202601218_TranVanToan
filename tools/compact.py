@@ -63,27 +63,56 @@ def main() -> int:
     n_src = len(list(SRC.glob("*.parquet")))
     print(f"  nguồn : {SRC}  ({n_src:,} file)")
 
-    # TODO(nhiệm vụ 4): hiện thực khung COPY ... TO ... ở phần docstring.
-    #
-    #   con.execute(f"""
-    #       copy (
-    #           select * from read_parquet('{SRC}/*.parquet')
-    #           order by ...
-    #       ) to '{DST}' (
-    #           format parquet,
-    #           partition_by (...),
-    #           overwrite_or_ignore,
-    #           row_group_size ...
-    #       )
-    #   """)
-    #
-    # Sau đó kiểm tra không mất hàng nào:
-    #
-    #   assert <số row dataset cũ> == <số row dataset mới>
+    src_glob = str(SRC / "*.parquet").replace("\\", "/")
+    dst_path = str(DST).replace("\\", "/")
 
-    print("\n  tools/compact.py chưa được hiện thực — đây là nhiệm vụ 4.")
-    print("  Mở file này, đọc phần KHUNG THỰC HIỆN ở đầu file và điền vào TODO.")
-    print("  Hướng dẫn từng bước: GUIDE.md mục 4.\n")
+    n_before = con.execute(
+        f"select count(*) from read_parquet('{src_glob}')"
+    ).fetchone()[0]
+
+    # ------------------------------------------------------------------
+    # Ba quyết định layout (xem docstring):
+    #
+    #   partition_by = (event_date)
+    #       Dashboard lọc theo event_date. Cột này chỉ có 14 giá trị -> 14 thư
+    #       mục, engine bỏ qua 13/14 dữ liệu TRƯỚC khi mở file chỉ nhờ đường
+    #       dẫn. KHÔNG partition theo customer_name (650 giá trị) vì sẽ đẻ ra
+    #       650 thư mục × 14 ngày = hàng nghìn file tí hon — tái lập đúng
+    #       small-file problem đang cần xoá.
+    #
+    #   order by customer_name
+    #       Điều kiện lọc thứ hai là customer_name. Sắp các hàng cùng khách
+    #       hàng nằm liền nhau để thống kê min/max của mỗi row group hẹp lại,
+    #       nhờ đó engine bỏ qua được các row group không chứa 'ACME'.
+    #
+    #   row_group_size = 2048
+    #       Một ngày ~9.300 hàng. Mặc định 122.880 gói cả ngày vào MỘT row
+    #       group -> min/max của customer_name trải khắp A..Z, vô dụng để lọc.
+    #       Chia nhỏ để mỗi row group chỉ phủ một dải customer_name hẹp.
+    # ------------------------------------------------------------------
+    con.execute(f"""
+        copy (
+            select * from read_parquet('{src_glob}')
+            order by event_date, customer_name
+        ) to '{dst_path}' (
+            format parquet,
+            partition_by (event_date),
+            overwrite_or_ignore,
+            row_group_size 2048
+        )
+    """)
+
+    n_after = con.execute(
+        f"select count(*) from read_parquet('{dst_path}/**/*.parquet')"
+    ).fetchone()[0]
+    n_files = len(list(DST.glob("**/*.parquet")))
+
+    assert n_before == n_after, f"mất hàng: {n_before:,} -> {n_after:,}"
+
+    print(f"  đích  : {DST}  ({n_files:,} file, {n_after:,} hàng)")
+    print(f"  kiểm tra: {n_before:,} == {n_after:,}  ✓ không mất hàng")
+    print("\n  Xong. Nhớ trỏ queries/dashboard.sql vào dataset mới rồi chạy")
+    print("  `make explain` để so với baseline.\n")
     return 0
 
 

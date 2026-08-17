@@ -30,8 +30,10 @@
 -- ---------------------------------------------------------------------------
 
 {{ config(
-    materialized     = 'incremental',
-    on_schema_change = 'fail'
+    materialized         = 'incremental',
+    on_schema_change     = 'fail',
+    unique_key           = ['event_date', 'customer_id'],
+    incremental_strategy = 'delete+insert'
 ) }}
 
 select
@@ -49,7 +51,9 @@ select
 from {{ ref('silver_events') }}
 
 {% if is_incremental() %}
-where event_date > (select max(event_date) from {{ this }})
+-- Lookback window: tính lại vài ngày gần nhất để bắt event tới muộn
+-- (late-arriving). Căn cứ P99 của (_ingested_at - event_time) ~ 3 ngày.
+where event_date >= (select max(event_date) from {{ this }}) - interval 3 day
 {% endif %}
 
 group by 1, 2, 3, 4

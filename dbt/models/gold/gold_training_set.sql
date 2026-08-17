@@ -13,6 +13,7 @@
 --
 --   Câu hỏi cần trả lời trước khi sửa:
 --     1. Grain của bảng này là entity hay sự kiện? Khoá tự nhiên là gì?
+--      su kien, khoa tu nhien la ticket_id
 --     2. Khi không có unique_key, dbt sinh ra câu lệnh ghi nào? Chạy lại
 --        cùng một ngày lần thứ hai thì hàng cũ bị THAY THẾ hay bị GHI THÊM?
 --     3. Nguồn CDC có bản ghi op='u'. Một ticket được tạo ngày D1 và bị sửa
@@ -26,7 +27,9 @@
 
 {{ config(
     materialized     = 'incremental',
-    on_schema_change = 'fail'
+    on_schema_change = 'fail',
+    unique_key       = 'ticket_id',
+    incremental_strategy = 'delete+insert'
 ) }}
 
 select

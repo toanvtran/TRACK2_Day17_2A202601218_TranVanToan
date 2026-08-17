@@ -35,16 +35,29 @@
 
 {{ config(materialized = 'table') }}
 
-with ranked as (
+with valid as (
+
+    -- LỌC TRƯỚC: loại các BẢN GHI mà priority không chuẩn hoá được
+    -- (macro trả về NULL). Làm trước khi xếp hạng để một bản ghi mới nhất
+    -- bị hỏng không xoá cả ticket khỏi Silver — ticket vẫn giữ trạng thái
+    -- hợp lệ từ lần cập nhật trước đó.
+    select
+        *,
+        {{ normalize_priority('priority_raw') }}             as priority_clean
+    from {{ source('bronze', 'bronze_tickets_cdc') }}
+    where {{ normalize_priority('priority_raw') }} is not null
+
+),
+
+ranked as (
 
     select
         *,
-        {{ normalize_priority('priority_raw') }}             as priority_clean,
         row_number() over (
             partition by ticket_id
             order by event_time desc, cdc_seq desc
         ) as _rn
-    from {{ source('bronze', 'bronze_tickets_cdc') }}
+    from valid
 
 ),
 
